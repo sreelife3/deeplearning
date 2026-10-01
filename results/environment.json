@@ -1,0 +1,8 @@
+{
+ "torch": "2.14.0+cpu",
+ "python": "3.14.3",
+ "machine": "AMD64",
+ "processor": "Intel64 Family 6 Model 142 Stepping 12, GenuineIntel",
+ "cpu_count": 8,
+ "threads_used": 1
+}

@@ -1,0 +1,39 @@
+# What is deliberately NOT in this repository, and why.
+#
+# Inputs and intermediates are out; results are in. A reader should be able to
+# check every number in the README against results/*.csv without running
+# anything, and reproduce the whole study from scratch with the commands in the
+# Reproducing section.
+
+# Input data: 60 MB, downloads automatically on first run (UCI HAR).
+data/
+
+# Regenerable artefacts of a run. The checkpoints are 12 trained models plus
+# their per-epoch histories and prediction arrays -- binary, large, and fully
+# reproduced by `python run_all.py`.
+checkpoints/
+
+# Experiment tracking stores. Local to whoever ran the study.
+mlruns/
+mlflow.db
+mlflow.db-journal
+mlflow.db-wal
+
+# Environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Kept on purpose, listed here so the choice is explicit rather than accidental:
+#   results/raw.csv          one row per run per precision -- the evidence
+#   results/summary.csv      the aggregation the README table is built from
+#   results/environment.json the machine the timings were taken on
+#   figures/*.png            rendered by report.py, and they display in the README

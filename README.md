@@ -178,5 +178,11 @@ comparison by hand is more work than logging it.
 
 Built on the recurrent-network material from Week 9 and the compression material
 from Week 10 of the IIT Kharagpur Executive PG Certificate in Applied AI and
-Machine Learning. The design decisions and the reasoning behind each are
-documented in `HAR_Build_Guide.pdf`.
+Machine Learning. The three design decisions that make the numbers mean
+something — subject-wise splitting, matched hyperparameters, and latency
+measured at batch size 1 on a single thread — are stated above with their
+reasoning, so this README is self-contained.
+
+## Licence
+
+MIT. See `LICENSE`.

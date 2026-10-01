@@ -1,0 +1,30 @@
+# Line-ending policy.
+#
+# This repository is edited on Windows and some of its files are written by
+# scripts running on Linux, so without a policy the same file arrives with CRLF
+# from one and LF from the other and git reports every line as changed. Pinning
+# it here means a diff only ever shows a real edit.
+
+# Default: git stores LF, and checks out whatever the platform uses.
+* text=auto
+
+# Shell scripts must keep LF. With CRLF, Linux reads the carriage return as part
+# of the interpreter path and fails with "bad interpreter: /bin/bash^M" — a
+# confusing error for a script that looks fine.
+*.sh text eol=lf
+
+# Batch files are the mirror image: CRLF, so cmd.exe behaves.
+*.bat text eol=crlf
+
+# Results and source: stored LF, checked out native.
+*.py   text
+*.md   text
+*.csv  text
+*.json text
+*.txt  text
+
+# Binary — never convert anything in these.
+*.png binary
+*.pdf binary
+*.pt  binary
+*.npy binary

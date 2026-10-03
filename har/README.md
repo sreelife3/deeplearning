@@ -126,6 +126,21 @@ evidence supports:
   balanced and collected under supervision. Field data is none of those things.
 - **Three seeds is enough to see whether a gap is noise, not enough to put a
   confidence interval on it.**
+- **Seed variance is probably not the largest variance here.** Three seeds size
+  the *training* noise — initialisation, batch order, dropout. They say nothing
+  about which five people happened to land in the test set. Subjects 26–30 are
+  fixed across all twelve runs, and between-subject variation in HAR is
+  plausibly wider than between-seed variation. So "indistinguishable" above
+  means *their gap is smaller than the spread from re-training one of them* —
+  not *they would rank the same on a different five subjects*. Quantifying that
+  needs leave-one-subject-out or `GroupKFold` on subject ID, and is the obvious
+  next experiment.
+- **The median is the wrong statistic for a real-time budget.** Both p50 and p95
+  are in the table, but a deadline is sized by the tail, not the middle — and
+  the tails are not proportional to the medians. The INT8 LSTM runs 30.59 ms at
+  p50 and **49.63 ms at p95**. Anything with a hard deadline should be sized
+  against the second number, and ideally against p99, which three seeds of 200
+  calls cannot estimate.
 
 The exact environment each number was measured in is recorded in
 `results/environment.json` — torch version, CPU, thread count. A timing without

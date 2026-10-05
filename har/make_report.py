@@ -207,12 +207,33 @@ def _findings(summary, raw):
                   abs(fast.macro_f1_mean - slow.macro_f1_mean)))
 
     pairs = R.indistinguishable(summary)
+    models = sorted(summary[summary.precision == "fp32"].model.unique())
+    n_pairs = len(models) * (len(models) - 1) // 2
     if pairs:
+        # State the denominator. "Four comparisons are noise" is unreadable
+        # without knowing how many there were; four architectures give
+        # C(4,2) = 6 pairs, and a reader should not have to work that out.
+        out.append("- **%d of the %d pairwise architecture comparisons are not "
+                   "results.** %d architectures give %d pairs. In %d of them the "
+                   "macro-F1 gap is smaller than the spread across three training "
+                   "seeds of one of the two models, so any ordering is noise."
+                   % (len(pairs), n_pairs, len(models), n_pairs, len(pairs)))
         for a, b, gap, spread in pairs:
             out.append("- **%s and %s are indistinguishable here:** they differ "
                        "by %.4f, inside a seed spread of %.4f. Any ranking "
                        "between them is noise."
                        % (NAMES.get(a, a), NAMES.get(b, b), gap, spread))
+        # and name the ones that DO survive, so the reader sees both halves
+        ind = {(a, b) for a, b, _, _ in pairs}
+        real = [(a, b) for i, a in enumerate(models) for b in models[i + 1:]
+                if (a, b) not in ind]
+        if real:
+            out.append("- **The %d comparison%s that survive%s:** %s. Only these "
+                       "carry a claim."
+                       % (len(real), "" if len(real) == 1 else "s",
+                          "s" if len(real) == 1 else "",
+                          ", ".join("%s vs %s" % (NAMES.get(a, a), NAMES.get(b, b))
+                                    for a, b in real)))
     else:
         out.append("- Every pair of models differs by more than the seed "
                    "spread, so the ranking above is a real ordering rather "

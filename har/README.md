@@ -63,6 +63,43 @@ the study has measured nothing.
 Three seeds each, so a difference between two models can be compared against the
 spread within one model.
 
+**The seeds are training seeds, not inference seeds.** Each one is a separate
+training run — different weight initialisation, different batch shuffling,
+different dropout masks — producing three independently trained models per
+architecture. Inference itself is deterministic: the same checkpoint and the
+same window give the same logits every time. So the `± range` in the results
+table is the spread in *what training converged to*, and it is the yardstick a
+gap between two architectures has to beat before it counts as a result.
+
+---
+
+## The machine
+
+Every latency number below was taken on one machine, and a latency claim without
+one is not a measurement. `results/environment.json` records what the run could
+read programmatically; the CPU it reports as
+`Intel64 Family 6 Model 142 Stepping 12` is a Comet Lake-U part, which almost no
+reader can decode, so it is spelled out here.
+
+| | |
+|---|---|
+| CPU | **Intel Core i5-10210U** (Comet Lake-U), 4 cores / 8 threads |
+| Clocks | 1.6 GHz base, 4.2 GHz turbo |
+| Cache | L1 64 KB per core · **L2 256 KB per core** · L3 6 MB shared |
+| Memory | DDR4-2666, 41.66 GB/s peak |
+| Vector ISA | AVX2 present · **no AVX-512, no VNNI, no AMX** |
+| Runtime | PyTorch 2.14.0+cpu, Python 3.14.3, **1 thread** |
+
+**This is a laptop, not an edge device.** Against a wearable-class part — the
+nRF52840 on an Arduino Nano 33 BLE Sense, a common TinyML target — it is roughly 25–65×
+the clock, and its L2 cache *per core* is the size of that board's entire
+256 KB of SRAM. What transfers from this bench is the parameter count, the model
+size, the macro-F1, the seed spread, and the *direction* of the latency ordering,
+which is architectural: a 1-D CNN has no sequential dependency across the 128
+timesteps and a recurrent net does, on any chip. What does not transfer is the
+specific 22×, and the INT8 result, which is discussed below and is a property of
+this toolchain on this instruction set.
+
 ---
 
 ## Results
@@ -85,10 +122,12 @@ All timings measured on Intel64 Family 6 Model 142 Stepping 12, GenuineIntel, 8 
 
 - **Most accurate (fp32):** GRU at macro-F1 **0.9575** (range 0.0047 across 3 seeds).
 - **Fastest (fp32):** CNN1D at **0.44 ms** per window, versus 9.79 ms for GRU — a **22×** difference for a macro-F1 gap of 0.0059.
+- **4 of the 6 pairwise architecture comparisons are not results.** 4 architectures give 6 pairs. In 4 of them the macro-F1 gap is smaller than the spread across three training seeds of one of the two models, so any ordering is noise.
 - **CNN1D and GRU are indistinguishable here:** they differ by 0.0059, inside a seed spread of 0.0111. Any ranking between them is noise.
 - **CNN1D and LSTM are indistinguishable here:** they differ by 0.0022, inside a seed spread of 0.0111. Any ranking between them is noise.
 - **CNN1D and RNN are indistinguishable here:** they differ by 0.0275, inside a seed spread of 0.0286. Any ranking between them is noise.
 - **GRU and LSTM are indistinguishable here:** they differ by 0.0037, inside a seed spread of 0.0061. Any ranking between them is noise.
+- **The 2 comparisons that survive:** GRU vs RNN, LSTM vs RNN. Only these carry a claim.
 - **CNN1D under INT8:** 101.0 KB → 100.6 KB (**1.00×**), macro-F1 +0.0002. Only Linear was converted — `Conv1d` is not covered by dynamic quantisation.
 - **GRU under INT8:** 159.3 KB → 46.5 KB (**3.43×**), macro-F1 -0.0011.
 - **LSTM under INT8:** 210.6 KB → 60.1 KB (**3.50×**), macro-F1 +0.0001.
@@ -107,6 +146,43 @@ All timings measured on Intel64 Family 6 Model 142 Stepping 12, GenuineIntel, 8 
 
 *Held-out subjects. The static postures are where the errors concentrate: SITTING and STANDING differ by orientation, not motion, which is the hardest distinction for an accelerometer to make.*
 <!-- RESULTS:END -->
+
+---
+
+## Why INT8 was slower, specifically
+
+The counter-intuitive result above deserves its mechanism rather than a shrug,
+because stated unqualified — *"INT8 made it slower"* — it is close to the
+opposite of the received wisdom in embedded ML, where INT8 is usually the only
+practical path and a real speed-up.
+
+Three things combine on **this** CPU with **this** backend:
+
+**1 · There was no memory-bandwidth problem left to solve.** Quantisation's usual
+win is traffic: fewer bytes moved per weight. But the LSTM's fp32 weights are
+211 KB, which already sits inside a 256 KB L2. They were never going out to DRAM
+in the first place, so halving them buys nothing, and on a microcontroller —
+where weights live in flash and there is no L2 at all — this argument has no
+analogue.
+
+**2 · This CPU has no VNNI.** With AVX-512 VNNI an INT8 multiply-accumulate is a
+single `VPDPBUSD`. Without it the same work is `VPMADDUBSW` + `VPMADDWD` +
+`VPADDD` — three instructions where fp32 uses one FMA. The theoretical INT8
+advantage largely evaporates before any overhead is counted.
+
+**3 · Dynamic quantisation re-derives activation scales at every step.** The
+range of each activation tensor is computed at runtime, once per timestep, so a
+128-step sequence pays that cost 128 times per inference. It also breaks the
+fused oneDNN kernel the fp32 LSTM path uses.
+
+The evidence that this is the conversion and not measurement drift is in the
+results above: the two models dynamic quantisation actually converted (GRU, LSTM)
+slowed by 2.8–24.9×, while the two it silently left alone (CNN1D, RNN — `Conv1d`
+and `nn.RNN` are not covered) stayed within 1.4×.
+
+**The rule this leaves behind:** never report a quantisation speed result without
+naming the backend and the hardware. On ARM with CMSIS-NN or TFLite, the same
+models would very likely go the other way.
 
 ---
 
